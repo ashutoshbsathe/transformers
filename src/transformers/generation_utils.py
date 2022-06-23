@@ -884,8 +884,9 @@ class GenerationMixin:
         remove_invalid_values: Optional[bool] = None,
         synced_gpus: Optional[bool] = False,
         exponential_decay_length_penalty: Optional[Tuple[Union[int, float]]] = None,
+        return_args: Optional[bool] = False,
         **model_kwargs,
-    ) -> Union[GreedySearchOutput, SampleOutput, BeamSearchOutput, BeamSampleOutput, torch.LongTensor]:
+    ) -> Union[GreedySearchOutput, SampleOutput, BeamSearchOutput, BeamSampleOutput, torch.LongTensor, tuple]:
         r"""
 
         Generates sequences of token ids for models with a language modeling head. The method supports the following
@@ -1361,7 +1362,7 @@ class GenerationMixin:
             with open(f'args_{stamp}.pkl', 'wb') as f:
                 pickle.dump(args, f)
             # 12. run beam search
-            return self.beam_search(
+            out = self.beam_search(
                 input_ids,
                 beam_scorer,
                 logits_processor=logits_processor,
@@ -1373,6 +1374,10 @@ class GenerationMixin:
                 synced_gpus=synced_gpus,
                 **model_kwargs,
             )
+            if return_args:
+                return out, args 
+            else:
+                return out
 
         elif is_beam_sample_gen_mode:
             # 10. prepare logits warper
