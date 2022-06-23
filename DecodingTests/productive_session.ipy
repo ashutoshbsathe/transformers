@@ -1,0 +1,32 @@
+# coding: utf-8
+from models.unified.prefixtuning import Model
+from utils.configue import Configure
+args = Configure.Get('Salesforce/T5_base_prefix_sql2text.cfg')
+model = Model(args)
+model.load('hkunlp/from_all_T5_base_prefix_sql2text2')
+isinstance(model, T5Model)
+from transformers import T5Model
+isinstance(model, T5Model)
+type(model)
+isinstance(model.pretrain_model, T5Model)
+type(model.pretrain_model)
+from transformers import AutoTokenizer
+tok1 = AutoTokenizer.from_pretrained('hkunlp/from_all_T5_base_prefix_sql2text2')
+tok2 = AutoTokenizer.from_pretrained('t5-base')
+tok1 = AutoTokenizer.from_pretrained('hkunlp/from_all_T5_base_prefix_sql2text2', use_fast=False)
+len(tok1)
+len(tok2)
+outs = model.generate(**tok1('SELECT name ,  country ,  age FROM singer ORDER BY age DESC ; structed knowledge: ', return_tensors='pt'), num_beams=4, num_return_sequences=4, max_length=256)
+outs = model.generate(**tok1('SELECT name ,  country ,  age FROM singer ORDER BY age DESC ; structed knowledge: ', return_tensors='pt'), num_beams=4, num_return_sequences=4, max_length=256, do_sample=True, top_k=120, top_p=0.95)
+outs = model.generate(**tok1(['SELECT name ,  country ,  age FROM singer ORDER BY age DESC ; structed knowledge: '], return_tensors='pt'), num_beams=4, num_return_sequences=4, max_length=256, do_sample=True, top_k=120, top_p=0.95)
+outs = model.generate(**tok1(['SELECT name ,  country ,  age FROM singer ORDER BY age DESC ; structed knowledge: '], return_tensors='pt'), num_beams=1, num_return_sequences=1, max_length=256, do_sample=True, top_k=120, top_p=0.95)
+tokenizer.batch_decode(outs['sequences'])
+tok1.batch_decode(outs['sequences'])
+tok1.decode(outs['sequences'])
+outs['sequences'].size()
+type(outs)
+tok1.decode(outs)
+outs.size()
+tok1.batch_decode(outs)
+outs = model.generate(**tok1(['SELECT name ,  country ,  age FROM singer ORDER BY age DESC ; structed knowledge: '], return_tensors='pt'), num_beams=4, num_return_sequences=4, max_length=256, do_sample=True, top_k=120, top_p=0.95)
+%save -r productive_session 1-99999

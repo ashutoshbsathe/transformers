@@ -15,7 +15,7 @@ from transformers.generation_utils import (
     BeamSampleDecoderOnlyOutput,
     BeamSampleEncoderDecoderOutput,
 )
-from transformers.pytorch_utils import torch_int_div
+# from transformers.pytorch_utils import torch_int_div
 from transformers import BartTokenizer, BartForConditionalGeneration
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 def beam_search(
@@ -233,7 +233,8 @@ def beam_search(
             next_token_scores, 2 * num_beams, dim=1, largest=True, sorted=True
         )
 
-        next_indices = torch_int_div(next_tokens, vocab_size)
+        #next_indices = torch_int_div(next_tokens, vocab_size)
+        next_indices = next_tokens // vocab_size
         next_tokens = next_tokens % vocab_size
 
         # stateless
@@ -296,7 +297,7 @@ def beam_search(
                 sequences=sequence_outputs["sequences"],
                 sequences_scores=sequence_outputs["sequence_scores"],
                 scores=scores,
-                beam_indices=beam_indices,
+                #beam_indices=beam_indices,
                 encoder_attentions=encoder_attentions,
                 encoder_hidden_states=encoder_hidden_states,
                 decoder_attentions=decoder_attentions,

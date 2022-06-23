@@ -1,0 +1,18 @@
+# coding: utf-8
+from models.unified.prefixtuning import Model
+from utils.configue import Configure
+args = Configure.Get('Salesforce/T5_base_prefix_sql2text.cfg')
+model = Model(args)
+model.load('hkunlp/from_all_T5_base_prefix_sql2text2')
+
+from transformers import AutoTokenizer
+tok1 = AutoTokenizer.from_pretrained('hkunlp/from_all_T5_base_prefix_sql2text2')
+
+from transformers import AutoTokenizer
+tok1 = AutoTokenizer.from_pretrained('hkunlp/from_all_T5_base_prefix_sql2text2', use_fast=False)
+outs = model.generate(**tok1('SELECT name ,  country ,  age FROM singer ORDER BY age DESC ; structed knowledge: ', return_tensors='pt'), num_beams=4, num_return_sequences=4, max_length=256)
+tokenizer.batch_decode(outs[0])
+tok1.batch_decode(outs[0])
+tokenizer.batch_decode(outs)
+tok1.batch_decode(outs)
+%save -r working 1-99999
