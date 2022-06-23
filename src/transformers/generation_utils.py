@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import inspect
+from logging import debug
 import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
@@ -467,6 +468,7 @@ class GenerationMixin:
         """
         Implement in subclasses of [`PreTrainedModel`] for custom behavior to prepare inputs in the generate method.
         """
+        print('Used this function')
         return {"input_ids": input_ids}
 
     def adjust_logits_during_generation(self, logits: torch.FloatTensor, **kwargs) -> torch.FloatTensor:
@@ -1340,6 +1342,24 @@ class GenerationMixin:
             input_ids, model_kwargs = self._expand_inputs_for_generation(
                 input_ids, expand_size=num_beams, is_encoder_decoder=self.config.is_encoder_decoder, **model_kwargs
             )
+            # 11.5. Pickle arguments 
+            import pickle 
+            import datetime 
+            args = {
+                'input_ids': input_ids,
+                'beam_scorer': beam_scorer,
+                'logits_processor': logits_processor,
+                'stopping_criteria': stopping_criteria,
+                'pad_token_id': pad_token_id,
+                'eos_token_id': eos_token_id,
+                'output_scores': output_scores,
+                'return_dict_in_generate': return_dict_in_generate,
+                'synced_gpus': synced_gpus,
+                'model_kwargs': model_kwargs,
+            }
+            stamp = datetime.datetime.now().strftime('%d-%m-%Y_%H%M%S')
+            with open(f'args_{stamp}.pkl', 'wb') as f:
+                pickle.dump(args, f)
             # 12. run beam search
             return self.beam_search(
                 input_ids,
@@ -2170,11 +2190,18 @@ class GenerationMixin:
                 model_kwargs["encoder_outputs"].get("hidden_states") if output_hidden_states else None
             )
 
+        debug_info = {}
+        from copy import deepcopy
         beam_scores = torch.zeros((batch_size, num_beams), dtype=torch.float, device=input_ids.device)
+        debug_info['beam_scores_init_0'] = deepcopy(beam_scores)
         beam_scores[:, 1:] = -1e9
+        debug_info['beam_scores_init_1'] = deepcopy(beam_scores)
         beam_scores = beam_scores.view((batch_size * num_beams,))
+        debug_info['beam_scores_init_2'] = deepcopy(beam_scores)
 
         this_peer_finished = False  # used by synced_gpus only
+
+        print(logits_processor)
         while True:
 
             if synced_gpus:
@@ -2187,8 +2214,15 @@ class GenerationMixin:
                 if this_peer_finished_flag.item() == 0.0:
                     break
 
-            model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+            debug_key = f'cur_len={cur_len:03d}'
+            debug_info[debug_key] = {}
+            step = 0
 
+            model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+           
+            debug_info[debug_key][f'{step:03d}_model_inputs'] = deepcopy(model_inputs)
+            step += 1
+            
             outputs = self(
                 **model_inputs,
                 return_dict=True,
@@ -2196,20 +2230,41 @@ class GenerationMixin:
                 output_hidden_states=output_hidden_states,
             )
 
+            debug_info[debug_key][f'{step:03d}_model_outputs'] = deepcopy(outputs)
+            step += 1
+
             if synced_gpus and this_peer_finished:
                 cur_len = cur_len + 1
                 continue  # don't waste resources running the code we don't need
 
             next_token_logits = outputs.logits[:, -1, :]
+
+            debug_info[debug_key][f'{step:03d}_next_token_logits'] = deepcopy(next_token_logits)
+            step += 1
+            
             # hack: adjust tokens for Marian. For Marian we have to make sure that the `pad_token_id`
             # cannot be generated both before and after the `nn.functional.log_softmax` operation.
             next_token_logits = self.adjust_logits_during_generation(next_token_logits, cur_len=cur_len)
+
+            debug_info[debug_key][f'{step:03d}_next_token_logits_adjusted'] = deepcopy(next_token_logits)
+            step += 1
+
             next_token_scores = nn.functional.log_softmax(
                 next_token_logits, dim=-1
             )  # (batch_size * num_beams, vocab_size)
 
+            debug_info[debug_key][f'{step:03d}_next_token_scores'] = deepcopy(next_token_scores)
+            step += 1
+
             next_token_scores_processed = logits_processor(input_ids, next_token_scores)
+
+            debug_info[debug_key][f'{step:03d}_next_token_scores_processed'] = deepcopy(next_token_scores_processed)
+            step += 1
+
             next_token_scores = next_token_scores_processed + beam_scores[:, None].expand_as(next_token_scores)
+
+            debug_info[debug_key][f'{step:03d}_next_token_scores_after_addition'] = deepcopy(next_token_scores)
+            step += 1
 
             # Store scores, attentions and hidden_states when required
             if return_dict_in_generate:
@@ -2233,12 +2288,22 @@ class GenerationMixin:
             vocab_size = next_token_scores.shape[-1]
             next_token_scores = next_token_scores.view(batch_size, num_beams * vocab_size)
 
+            debug_info[debug_key][f'{step:03d}_next_token_scores_reshaped'] = deepcopy(next_token_scores)
+            step += 1
+
             next_token_scores, next_tokens = torch.topk(
                 next_token_scores, 2 * num_beams, dim=1, largest=True, sorted=True
             )
 
+            debug_info[debug_key][f'{step:03d}_next_token_scores_topk'] = deepcopy(next_token_scores)
+            debug_info[debug_key][f'{step:03d}_next_tokens_topk'] = deepcopy(next_tokens)
+            step += 1
+
             next_indices = torch_int_div(next_tokens, vocab_size)
             next_tokens = next_tokens % vocab_size
+
+            debug_info[debug_key][f'{step:03d}_next_tokens'] = deepcopy(next_tokens)
+            step += 1
 
             # stateless
             beam_outputs = beam_scorer.process(
@@ -2250,17 +2315,27 @@ class GenerationMixin:
                 eos_token_id=eos_token_id,
             )
 
+            debug_info[debug_key][f'{step:03d}_beam_outputs_after_process'] = deepcopy(beam_outputs)
+            step += 1
+
             beam_scores = beam_outputs["next_beam_scores"]
             beam_next_tokens = beam_outputs["next_beam_tokens"]
             beam_idx = beam_outputs["next_beam_indices"]
 
             input_ids = torch.cat([input_ids[beam_idx, :], beam_next_tokens.unsqueeze(-1)], dim=-1)
 
+            debug_info[debug_key][f'{step:03d}_input_ids'] = deepcopy(input_ids)
+            step += 1
+
             model_kwargs = self._update_model_kwargs_for_generation(
                 outputs, model_kwargs, is_encoder_decoder=self.config.is_encoder_decoder
             )
+
             if model_kwargs["past"] is not None:
                 model_kwargs["past"] = self._reorder_cache(model_kwargs["past"], beam_idx)
+
+            debug_info[debug_key][f'{step:03d}_model_kwargs'] = deepcopy(model_kwargs)
+            step += 1
 
             if return_dict_in_generate and output_scores:
                 beam_indices = tuple((beam_indices[beam_idx[i]] + (beam_idx[i],) for i in range(len(beam_indices))))
@@ -2283,6 +2358,7 @@ class GenerationMixin:
             eos_token_id=eos_token_id,
             max_length=stopping_criteria.max_length,
         )
+        debug_info['sequence_outputs'] = deepcopy(sequence_outputs)
 
         if return_dict_in_generate:
             if not output_scores:
@@ -2306,7 +2382,7 @@ class GenerationMixin:
                     decoder_attentions=decoder_attentions,
                     cross_attentions=cross_attentions,
                     decoder_hidden_states=decoder_hidden_states,
-                )
+                ), debug_info
             else:
                 return BeamSearchDecoderOnlyOutput(
                     sequences=sequence_outputs["sequences"],
@@ -2315,7 +2391,7 @@ class GenerationMixin:
                     beam_indices=beam_indices,
                     attentions=decoder_attentions,
                     hidden_states=decoder_hidden_states,
-                )
+                ), debug_info
         else:
             return sequence_outputs["sequences"]
 
