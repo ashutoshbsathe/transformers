@@ -1,3 +1,5 @@
+# Other imports 
+from copy import deepcopy 
 # Standalone beam_search 
 from new_from_hf import beam_search
 # UnifiedSKG
@@ -23,7 +25,7 @@ sql2text_input = 'SELECT COUNT(prerequisite) FROM course WHERE name = "Advanced 
 paraphrase_input = 'paraphrase: What number of prerequisites exist for the course "Advanced Machine Learning"? </s>'
 
 # Standalone UnifiedSKG
-out, unifiedskg_args = unifiedskg.generate(
+out1, unifiedskg_args = unifiedskg.generate(
     **{k: v.cuda() for k, v in tok(sql2text_input, return_tensors='pt').items()},
     num_beams=4,
     num_return_sequences=4,
@@ -34,25 +36,24 @@ out, unifiedskg_args = unifiedskg.generate(
 )
 print('UnifiedSKG keys:', unifiedskg_args.keys())
 print('UnifiedSKG model keys:', unifiedskg_args['model_kwargs'].keys())
-print(64*'-')
 print('Standalone UnifiedSKG [HF generate]')
-print(f'Input: """{sql2text_input}"""\nOutput:')
-for i, seq in enumerate(tok.batch_decode(out['sequences'])):
-    print(f'{i+1} {out["sequences_scores"][i].item():.3f} {seq}')
+print(f'Input: ""{sql2text_input}""\nOutput:')
+for i, seq in enumerate(tok.batch_decode(out1['sequences'])):
+    print(f'{i+1} {out1["sequences_scores"][i].item():.3f} {seq}')
 print(64*'-')
 
 unifiedskg_model_kwargs = unifiedskg_args.pop('model_kwargs')
-out = beam_search(unifiedskg.pretrain_model, **unifiedskg_args, **unifiedskg_model_kwargs)
-print(64*'-')
+
+out2 = beam_search(unifiedskg.pretrain_model, **deepcopy(unifiedskg_args), **unifiedskg_model_kwargs)
 print('Standalone UnifiedSKG [Standalone beam_search]')
-print(f'Input: """{sql2text_input}"""\nOutput:')
-for i, seq in enumerate(tok.batch_decode(out['sequences'])):
-    print(f'{i+1} {out["sequences_scores"][i].item():.3f} {seq}')
+print(f'Input: ""{sql2text_input}""\nOutput:')
+for i, seq in enumerate(tok.batch_decode(out2['sequences'])):
+    print(f'{i+1} {out2["sequences_scores"][i].item():.3f} {seq}')
 print(64*'-')
 
 
 # Standalone Paraphrase 
-out, paraphrase_args = paraphrase.generate(
+out3, paraphrase_args = paraphrase.generate(
     **{k: v.cuda() for k, v in tok(paraphrase_input, return_tensors='pt').items()},
     num_beams=4,
     num_return_sequences=4,
@@ -63,28 +64,33 @@ out, paraphrase_args = paraphrase.generate(
 )
 print('Paraphrase keys:', paraphrase_args.keys())
 print('Paraphrase model keys:', paraphrase_args['model_kwargs'].keys())
-print(64*'-')
 print('Standalone Paraphrase [HF generate]')
-print(f'Input: """{paraphrase_input}"""\nOutput:')
-for i, seq in enumerate(tok.batch_decode(out['sequences'])):
-    print(f'{i+1} {out["sequences_scores"][i].item():.3f} {seq}')
+print(f'Input: ""{paraphrase_input}""\nOutput:')
+for i, seq in enumerate(tok.batch_decode(out3['sequences'])):
+    print(f'{i+1} {out3["sequences_scores"][i].item():.3f} {seq}')
 print(64*'-')
 
 paraphrase_model_kwargs = paraphrase_args.pop('model_kwargs')
-out = beam_search(paraphrase, **paraphrase_args, **paraphrase_model_kwargs)
-print(64*'-')
+
+out4 = beam_search(paraphrase, **deepcopy(paraphrase_args), **paraphrase_model_kwargs)
 print('Standalone Paraphrase [Standalone beam_search]')
-print(f'Input: """{paraphrase_input}"""\nOutput:')
-for i, seq in enumerate(tok.batch_decode(out['sequences'])):
-    print(f'{i+1} {out["sequences_scores"][i].item():.3f} {seq}')
+print(f'Input: ""{paraphrase_input}""\nOutput:')
+for i, seq in enumerate(tok.batch_decode(out4['sequences'])):
+    print(f'{i+1} {out4["sequences_scores"][i].item():.3f} {seq}')
 print(64*'-')
 
+
 # Joint decoding 
-#out = beam_search(unifiedskg.pretrain_model, **unifiedskg_args, model2=paraphrase, model2_kwargs=paraphrase_model_kwargs, **unifiedskg_model_kwargs)
-out = beam_search(paraphrase, **paraphrase_args, model2=unifiedskg.pretrain_model, model2_kwargs=unifiedskg_model_kwargs, **paraphrase_model_kwargs)
-print(64*'-')
-print('Joint decoding')
+out5 = beam_search(paraphrase, **deepcopy(paraphrase_args), model2=unifiedskg.pretrain_model, model2_kwargs=unifiedskg_model_kwargs, **paraphrase_model_kwargs)
+print('Joint decoding: 1 - Paraphrase, 2 - UnifiedSKG')
 print('Output:')
-for i, seq in enumerate(tok.batch_decode(out['sequences'])):
-    print(f'{i+1} {out["sequences_scores"][i].item():.3f} {seq}')
+for i, seq in enumerate(tok.batch_decode(out5['sequences'])):
+    print(f'{i+1} {out5["sequences_scores"][i].item():.3f} {seq}')
+print(64*'-')
+
+out6 = beam_search(unifiedskg.pretrain_model, **deepcopy(unifiedskg_args), model2=paraphrase, model2_kwargs=paraphrase_model_kwargs, **unifiedskg_model_kwargs)
+print('Joint decoding: 1 - UnifiedSKG, 2 - Paraphrase')
+print('Output:')
+for i, seq in enumerate(tok.batch_decode(out6['sequences'])):
+    print(f'{i+1} {out5["sequences_scores"][i].item():.3f} {seq}')
 print(64*'-')

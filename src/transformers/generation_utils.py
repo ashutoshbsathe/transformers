@@ -19,6 +19,7 @@ from logging import debug
 import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from copy import deepcopy
 
 import torch
 import torch.distributed as dist
@@ -1348,9 +1349,9 @@ class GenerationMixin:
             import datetime 
             args = {
                 'input_ids': input_ids,
-                'beam_scorer': beam_scorer,
-                'logits_processor': logits_processor,
-                'stopping_criteria': stopping_criteria,
+                'beam_scorer': deepcopy(beam_scorer),
+                'logits_processor': deepcopy(logits_processor),
+                'stopping_criteria': deepcopy(stopping_criteria),
                 'pad_token_id': pad_token_id,
                 'eos_token_id': eos_token_id,
                 'output_scores': output_scores,

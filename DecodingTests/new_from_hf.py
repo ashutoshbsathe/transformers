@@ -123,7 +123,6 @@ def beam_search(
     ```"""
     if model2 is not None:
         assert model2_kwargs is not None # TODO: better error messages
-    print(model_kwargs.keys())
     # init values
     logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
     stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
@@ -220,7 +219,6 @@ def beam_search(
             next_token_logits, dim=-1
         )  # (batch_size * num_beams, vocab_size)
 
-        print('Before:', torch.norm(next_token_scores))
         if model2 is not None:
             next_token_logits2 = outputs2.logits[:, -1, :]
             # hack: adjust tokens for Marian. For Marian we have to make sure that the `pad_token_id`
@@ -229,7 +227,6 @@ def beam_search(
             next_token_scores += nn.functional.log_softmax(
                 next_token_logits2, dim=-1
             )  # (batch_size * num_beams, vocab_size)
-        print('After:', torch.norm(next_token_scores))
         next_token_scores_processed = logits_processor(input_ids, next_token_scores)
         next_token_scores = next_token_scores_processed + beam_scores[:, None].expand_as(next_token_scores)
 
@@ -278,7 +275,6 @@ def beam_search(
         beam_idx = beam_outputs["next_beam_indices"]
 
         input_ids = torch.cat([input_ids[beam_idx, :], beam_next_tokens.unsqueeze(-1)], dim=-1)
-        print(input_ids)
 
         model_kwargs = model._update_model_kwargs_for_generation(
             outputs, model_kwargs, is_encoder_decoder=model.config.is_encoder_decoder
@@ -304,7 +300,6 @@ def beam_search(
 
         # increase cur_len
         cur_len = cur_len + 1
-        print(cur_len)
 
         if beam_scorer.is_done or stopping_criteria(input_ids, scores):
             if not synced_gpus:
@@ -312,8 +307,6 @@ def beam_search(
             else:
                 this_peer_finished = True
     
-    print('Before finalize')
-    print(input_ids)
     sequence_outputs = beam_scorer.finalize(
         input_ids,
         beam_scores,
@@ -323,7 +316,6 @@ def beam_search(
         eos_token_id=eos_token_id,
         max_length=stopping_criteria.max_length,
     )
-    print(sequence_outputs)
 
     if return_dict_in_generate:
         if not output_scores:
