@@ -6,6 +6,7 @@ from transformers import (
     StoppingCriteriaList,
     BeamScorer,
     BeamSearchScorer,
+    PreTrainedModel,
  )
 from transformers.generation_utils import (
     BeamSearchOutput,
@@ -19,7 +20,7 @@ from transformers.generation_utils import (
 from transformers import BartTokenizer, BartForConditionalGeneration
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 def beam_search(
-    self,
+    model,
     input_ids: torch.LongTensor,
     beam_scorer: BeamScorer,
     logits_processor: Optional[LogitsProcessorList] = None,
@@ -32,6 +33,8 @@ def beam_search(
     output_scores: Optional[bool] = None,
     return_dict_in_generate: Optional[bool] = None,
     synced_gpus: Optional[bool] = False,
+    model2: Optional[PreTrainedModel] = None,
+    model2_kwargs: Optional[dict] = None,
     **model_kwargs,
 ) -> Union[BeamSearchOutput, torch.LongTensor]:
     r"""
@@ -118,6 +121,9 @@ def beam_search(
     >>> tokenizer.batch_decode(outputs, skip_special_tokens=True)
     ['Wie alt bist du?']
     ```"""
+    if model2 is not None:
+        assert model2_kwargs is not None # TODO: better error messages
+    print(model_kwargs.keys())
     # init values
     logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
     stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
@@ -129,15 +135,15 @@ def beam_search(
         stopping_criteria = validate_stopping_criteria(stopping_criteria, max_length)
     if len(stopping_criteria) == 0:
         warnings.warn("You don't have defined any stopping_criteria, this will likely loop forever", UserWarning)
-    pad_token_id = pad_token_id if pad_token_id is not None else self.config.pad_token_id
-    eos_token_id = eos_token_id if eos_token_id is not None else self.config.eos_token_id
-    output_scores = output_scores if output_scores is not None else self.config.output_scores
-    output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+    pad_token_id = pad_token_id if pad_token_id is not None else model.config.pad_token_id
+    eos_token_id = eos_token_id if eos_token_id is not None else model.config.eos_token_id
+    output_scores = output_scores if output_scores is not None else model.config.output_scores
+    output_attentions = output_attentions if output_attentions is not None else model.config.output_attentions
     output_hidden_states = (
-        output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        output_hidden_states if output_hidden_states is not None else model.config.output_hidden_states
     )
     return_dict_in_generate = (
-        return_dict_in_generate if return_dict_in_generate is not None else self.config.return_dict_in_generate
+        return_dict_in_generate if return_dict_in_generate is not None else model.config.return_dict_in_generate
     )
 
     batch_size = len(beam_scorer._beam_hyps)
@@ -160,7 +166,7 @@ def beam_search(
     decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
 
     # if model is an encoder-decoder, retrieve encoder attention weights and hidden states
-    if return_dict_in_generate and self.config.is_encoder_decoder:
+    if return_dict_in_generate and model.config.is_encoder_decoder:
         encoder_attentions = model_kwargs["encoder_outputs"].get("attentions") if output_attentions else None
         encoder_hidden_states = (
             model_kwargs["encoder_outputs"].get("hidden_states") if output_hidden_states else None
@@ -183,27 +189,47 @@ def beam_search(
             if this_peer_finished_flag.item() == 0.0:
                 break
 
-        model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+        model_inputs = model.prepare_inputs_for_generation(input_ids, **model_kwargs)
 
-        outputs = self(
+        outputs = model(
             **model_inputs,
             return_dict=True,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
         )
+        
+        if model2 is not None:
+            model2_inputs = model2.prepare_inputs_for_generation(input_ids, **model2_kwargs)
+            outputs2 = model2(
+                **model2_inputs,
+                return_dict=True,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+            )
 
         if synced_gpus and this_peer_finished:
             cur_len = cur_len + 1
+            print(f'Exiting because synced_gpus = {synced_gpus} and this_peer_finished = {this_peer_finished}')
             continue  # don't waste resources running the code we don't need
 
         next_token_logits = outputs.logits[:, -1, :]
         # hack: adjust tokens for Marian. For Marian we have to make sure that the `pad_token_id`
         # cannot be generated both before and after the `nn.functional.log_softmax` operation.
-        next_token_logits = self.adjust_logits_during_generation(next_token_logits, cur_len=cur_len)
+        next_token_logits = model.adjust_logits_during_generation(next_token_logits, cur_len=cur_len)
         next_token_scores = nn.functional.log_softmax(
             next_token_logits, dim=-1
         )  # (batch_size * num_beams, vocab_size)
 
+        print('Before:', torch.norm(next_token_scores))
+        if model2 is not None:
+            next_token_logits2 = outputs2.logits[:, -1, :]
+            # hack: adjust tokens for Marian. For Marian we have to make sure that the `pad_token_id`
+            # cannot be generated both before and after the `nn.functional.log_softmax` operation.
+            next_token_logits2 = model2.adjust_logits_during_generation(next_token_logits, cur_len=cur_len)
+            next_token_scores += nn.functional.log_softmax(
+                next_token_logits2, dim=-1
+            )  # (batch_size * num_beams, vocab_size)
+        print('After:', torch.norm(next_token_scores))
         next_token_scores_processed = logits_processor(input_ids, next_token_scores)
         next_token_scores = next_token_scores_processed + beam_scores[:, None].expand_as(next_token_scores)
 
@@ -213,15 +239,15 @@ def beam_search(
                 scores += (next_token_scores_processed,)
             if output_attentions:
                 decoder_attentions += (
-                    (outputs.decoder_attentions,) if self.config.is_encoder_decoder else (outputs.attentions,)
+                    (outputs.decoder_attentions,) if model.config.is_encoder_decoder else (outputs.attentions,)
                 )
-                if self.config.is_encoder_decoder:
+                if model.config.is_encoder_decoder:
                     cross_attentions += (outputs.cross_attentions,)
 
             if output_hidden_states:
                 decoder_hidden_states += (
                     (outputs.decoder_hidden_states,)
-                    if self.config.is_encoder_decoder
+                    if model.config.is_encoder_decoder
                     else (outputs.hidden_states,)
                 )
 
@@ -252,25 +278,42 @@ def beam_search(
         beam_idx = beam_outputs["next_beam_indices"]
 
         input_ids = torch.cat([input_ids[beam_idx, :], beam_next_tokens.unsqueeze(-1)], dim=-1)
+        print(input_ids)
 
-        model_kwargs = self._update_model_kwargs_for_generation(
-            outputs, model_kwargs, is_encoder_decoder=self.config.is_encoder_decoder
+        model_kwargs = model._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=model.config.is_encoder_decoder
         )
+
+        if model2 is not None:
+            model2_kwargs = model2._update_model_kwargs_for_generation(
+                outputs2, model2_kwargs, is_encoder_decoder=model2.config.is_encoder_decoder
+            )
+
         if model_kwargs["past"] is not None:
-            model_kwargs["past"] = self._reorder_cache(model_kwargs["past"], beam_idx)
+            model_kwargs["past"] = model._reorder_cache(model_kwargs["past"], beam_idx)
+ 
+        if model2 is not None and model2_kwargs["past"] is not None:
+            # This seems superfluos 
+            # Whenever first model "past" becomes non-None, 
+            # second model's "past" will also become non-None 
+            # TODO: study this properly
+            model2_kwargs["past"] = model2._reorder_cache(model2_kwargs["past"], beam_idx)       
 
         if return_dict_in_generate and output_scores:
             beam_indices = tuple((beam_indices[beam_idx[i]] + (beam_idx[i],) for i in range(len(beam_indices))))
 
         # increase cur_len
         cur_len = cur_len + 1
+        print(cur_len)
 
         if beam_scorer.is_done or stopping_criteria(input_ids, scores):
             if not synced_gpus:
                 break
             else:
                 this_peer_finished = True
-
+    
+    print('Before finalize')
+    print(input_ids)
     sequence_outputs = beam_scorer.finalize(
         input_ids,
         beam_scores,
@@ -280,6 +323,7 @@ def beam_search(
         eos_token_id=eos_token_id,
         max_length=stopping_criteria.max_length,
     )
+    print(sequence_outputs)
 
     if return_dict_in_generate:
         if not output_scores:
@@ -292,7 +336,7 @@ def beam_search(
             )
             beam_indices = sum(beam_indices, ())
 
-        if self.config.is_encoder_decoder:
+        if model.config.is_encoder_decoder:
             return BeamSearchEncoderDecoderOutput(
                 sequences=sequence_outputs["sequences"],
                 sequences_scores=sequence_outputs["sequence_scores"],
