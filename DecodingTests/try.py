@@ -90,5 +90,5 @@ out6 = beam_search(unifiedskg.pretrain_model, **deepcopy(unifiedskg_args), model
 print('Joint decoding: 1 - UnifiedSKG, 2 - Paraphrase')
 print('Output:')
 for i, seq in enumerate(tok.batch_decode(out6['sequences'])):
-    print(f'{i+1} {out5["sequences_scores"][i].item():.3f} {seq}')
+    print(f'{i+1} {out6["sequences_scores"][i].item():.3f} {seq}')
 print(64*'-')

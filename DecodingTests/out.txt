@@ -1,6 +1,4 @@
 prefix-tuning sequence length is 10.
-UnifiedSKG keys: dict_keys(['input_ids', 'beam_scorer', 'logits_processor', 'stopping_criteria', 'pad_token_id', 'eos_token_id', 'output_scores', 'return_dict_in_generate', 'synced_gpus', 'model_kwargs'])
-UnifiedSKG model keys: dict_keys(['past_prompt', 'output_attentions', 'output_hidden_states', 'use_cache', 'attention_mask', 'encoder_outputs'])
 Standalone UnifiedSKG [HF generate]
 Input: ""SELECT COUNT(prerequisite) FROM course WHERE name = "Advanced Machine Learning" ; structed knowledge: ""
 Output:
@@ -17,8 +15,7 @@ Output:
 3 -0.243 <pad> How many prerequisites are there for Advanced Machine Learning?</s><pad><pad>
 4 -0.250 <pad> Count the number of prerequisites for Advanced Machine Learning courses.</s>
 ----------------------------------------------------------------
-Paraphrase keys: dict_keys(['input_ids', 'beam_scorer', 'logits_processor', 'stopping_criteria', 'pad_token_id', 'eos_token_id', 'output_scores', 'return_dict_in_generate', 'synced_gpus', 'model_kwargs'])
-Paraphrase model keys: dict_keys(['output_attentions', 'output_hidden_states', 'use_cache', 'attention_mask', 'encoder_outputs'])
+----------------------------------------------------------------
 Standalone Paraphrase [HF generate]
 Input: ""paraphrase: What number of prerequisites exist for the course "Advanced Machine Learning"? </s>""
 Output:
@@ -35,6 +32,7 @@ Output:
 3 -0.339 <pad> What are the prerequisites for Advanced Machine Learning course?</s>
 4 -0.341 <pad> What are the prerequisites for advanced machine learning course?</s>
 ----------------------------------------------------------------
+----------------------------------------------------------------
 Joint decoding: 1 - Paraphrase, 2 - UnifiedSKG
 Output:
 1 -0.566 <pad> What are the prerequisites for Advanced Machine Learning?</s><pad>
@@ -44,8 +42,8 @@ Output:
 ----------------------------------------------------------------
 Joint decoding: 1 - UnifiedSKG, 2 - Paraphrase
 Output:
-1 -0.566 <pad> How many prerequisites are there?</s><pad>
-2 -0.638 <pad> How many prerequisites do we have?</s>
-3 -0.678 <pad> Count the number.</s><pad><pad><pad>
-4 -0.681 <pad> Count the number of them?</s><pad>
+1 -0.311 <pad> How many prerequisites are there?</s><pad>
+2 -0.737 <pad> How many prerequisites do we have?</s>
+3 -0.917 <pad> Count the number.</s><pad><pad><pad>
+4 -0.945 <pad> Count the number of them?</s><pad>
 ----------------------------------------------------------------
