@@ -35,6 +35,7 @@ def beam_search(
     synced_gpus: Optional[bool] = False,
     model2: Optional[PreTrainedModel] = None,
     model2_kwargs: Optional[dict] = None,
+    max_vocab_size: Optional[int] = 32102,
     **model_kwargs,
 ) -> Union[BeamSearchOutput, torch.LongTensor]:
     r"""
@@ -215,17 +216,22 @@ def beam_search(
         # hack: adjust tokens for Marian. For Marian we have to make sure that the `pad_token_id`
         # cannot be generated both before and after the `nn.functional.log_softmax` operation.
         next_token_logits = model.adjust_logits_during_generation(next_token_logits, cur_len=cur_len)
-        next_token_scores = nn.functional.log_softmax(
-            next_token_logits, dim=-1
-        )  # (batch_size * num_beams, vocab_size)
 
         if model2 is not None:
             next_token_logits2 = outputs2.logits[:, -1, :]
             # hack: adjust tokens for Marian. For Marian we have to make sure that the `pad_token_id`
             # cannot be generated both before and after the `nn.functional.log_softmax` operation.
             next_token_logits2 = model2.adjust_logits_during_generation(next_token_logits, cur_len=cur_len)
-            next_token_scores += nn.functional.log_softmax(
-                next_token_logits2, dim=-1
+            # Important !
+            trim_size = min(min(next_token_logits.size(-1), next_token_logits2.size(-1)), max_vocab_size)
+            next_token_scores = nn.functional.log_softmax(
+                    next_token_logits[:trim_size], dim=-1
+                ) + nn.functional.log_softmax(
+                next_token_logits2[:trim_size], dim=-1
+            )  # (batch_size * num_beams, vocab_size)
+        else:
+            next_token_scores = nn.functional.log_softmax(
+                next_token_logits, dim=-1
             )  # (batch_size * num_beams, vocab_size)
         next_token_scores_processed = logits_processor(input_ids, next_token_scores)
         next_token_scores = next_token_scores_processed + beam_scores[:, None].expand_as(next_token_scores)
@@ -249,7 +255,7 @@ def beam_search(
                 )
 
         # reshape for beam search
-        vocab_size = next_token_scores.shape[-1]
+        vocab_size = next_token_scores.size(-1)
         next_token_scores = next_token_scores.view(batch_size, num_beams * vocab_size)
 
         next_token_scores, next_tokens = torch.topk(

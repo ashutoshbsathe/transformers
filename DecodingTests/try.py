@@ -34,8 +34,6 @@ out1, unifiedskg_args = unifiedskg.generate(
     return_dict_in_generate=True,
     return_args=True,
 )
-print('UnifiedSKG keys:', unifiedskg_args.keys())
-print('UnifiedSKG model keys:', unifiedskg_args['model_kwargs'].keys())
 print('Standalone UnifiedSKG [HF generate]')
 print(f'Input: ""{sql2text_input}""\nOutput:')
 for i, seq in enumerate(tok.batch_decode(out1['sequences'])):
@@ -50,6 +48,7 @@ print(f'Input: ""{sql2text_input}""\nOutput:')
 for i, seq in enumerate(tok.batch_decode(out2['sequences'])):
     print(f'{i+1} {out2["sequences_scores"][i].item():.3f} {seq}')
 print(64*'-')
+print(64*'-')
 
 
 # Standalone Paraphrase 
@@ -62,8 +61,6 @@ out3, paraphrase_args = paraphrase.generate(
     return_dict_in_generate=True,
     return_args=True,
 )
-print('Paraphrase keys:', paraphrase_args.keys())
-print('Paraphrase model keys:', paraphrase_args['model_kwargs'].keys())
 print('Standalone Paraphrase [HF generate]')
 print(f'Input: ""{paraphrase_input}""\nOutput:')
 for i, seq in enumerate(tok.batch_decode(out3['sequences'])):
@@ -77,6 +74,7 @@ print('Standalone Paraphrase [Standalone beam_search]')
 print(f'Input: ""{paraphrase_input}""\nOutput:')
 for i, seq in enumerate(tok.batch_decode(out4['sequences'])):
     print(f'{i+1} {out4["sequences_scores"][i].item():.3f} {seq}')
+print(64*'-')
 print(64*'-')
 
 
