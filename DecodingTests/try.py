@@ -15,7 +15,14 @@ unifiedskg.eval()
 # Common 
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 tok = AutoTokenizer.from_pretrained('t5-base')
-
+gen_args = dict(
+    num_beams=4,
+    num_return_sequences=4,
+    max_length=256,
+    output_scores=True,
+    return_dict_in_generate=True,
+    return_args=True,
+)
 # Paraphrase 
 paraphrase = T5ForConditionalGeneration.from_pretrained('ramsrigouthamg/t5_paraphraser').cuda()
 paraphrase.eval()
@@ -27,12 +34,7 @@ paraphrase_input = 'paraphrase: What number of prerequisites exist for the cours
 # Standalone UnifiedSKG
 out1, unifiedskg_args = unifiedskg.generate(
     **{k: v.cuda() for k, v in tok(sql2text_input, return_tensors='pt').items()},
-    num_beams=4,
-    num_return_sequences=4,
-    max_length=256,
-    output_scores=True,
-    return_dict_in_generate=True,
-    return_args=True,
+    **gen_args,
 )
 print('Standalone UnifiedSKG [HF generate]')
 print(f'Input: ""{sql2text_input}""\nOutput:')
@@ -54,12 +56,7 @@ print(64*'-')
 # Standalone Paraphrase 
 out3, paraphrase_args = paraphrase.generate(
     **{k: v.cuda() for k, v in tok(paraphrase_input, return_tensors='pt').items()},
-    num_beams=4,
-    num_return_sequences=4,
-    max_length=256,
-    output_scores=True,
-    return_dict_in_generate=True,
-    return_args=True,
+    **gen_args,
 )
 print('Standalone Paraphrase [HF generate]')
 print(f'Input: ""{paraphrase_input}""\nOutput:')
