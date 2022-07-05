@@ -35,15 +35,29 @@ Output:
 ----------------------------------------------------------------
 Joint decoding: 1 - Paraphrase, 2 - UnifiedSKG
 Output:
-1 -0.566 <pad> What are the prerequisites for Advanced Machine Learning?</s><pad>
-2 -0.638 <pad> What are the prerequisites for advanced machine learning?</s><pad>
-3 -0.678 <pad> What are the prerequisites for Advanced Machine Learning course?</s>
-4 -0.681 <pad> What are the prerequisites for advanced machine learning course?</s>
+1 -0.782 <pad> How many prerequisites are there for Advanced Machine Learning?</s><pad>
+2 -0.803 <pad> How many prerequisites are there for Advanced Machine Learning course?</s>
+3 -0.886 <pad> What are the prerequisites for Advanced Machine Learning?</s><pad><pad>
+4 -0.894 <pad> How many prerequisites are there for Advanced Machine Learning courses?</s>
 ----------------------------------------------------------------
 Joint decoding: 1 - UnifiedSKG, 2 - Paraphrase
 Output:
-1 -0.311 <pad> How many prerequisites are there?</s><pad>
-2 -0.737 <pad> How many prerequisites do we have?</s>
-3 -0.917 <pad> Count the number.</s><pad><pad><pad>
-4 -0.945 <pad> Count the number of them?</s><pad>
+1 -1.435 <pad> How many prerequisites are there for advanced machine learning course?</s>
+2 -1.470 <pad> How many prerequisites are there for advanced machine learning courses?</s>
+3 -1.471 <pad> How many prerequisites are there?</s><pad><pad><pad><pad><pad>
+4 -1.666 <pad> How many prerequisites are there for advanced machine learning?</s><pad>
+----------------------------------------------------------------
+Joint decoding: 1 - UnifiedSKG, 2 - UnifiedSKG
+Output:
+1 -0.294 <pad> How many prerequisites are there?</s><pad>
+2 -0.817 <pad> Count the number of prerequisites.</s>
+3 -0.897 <pad> Count the number.</s><pad><pad><pad>
+4 -1.024 <pad> What is the count?</s><pad><pad><pad>
+----------------------------------------------------------------
+Joint decoding: 1 - Paraphrase, 2 - Paraphrase
+Output:
+1 -1.914 <pad> Is there a prerequisite for advanced machine learning course?</s>
+2 -1.978 <pad> Is there a prerequisite for this course?</s><pad><pad>
+3 -2.063 <pad> Is there a prerequisite for the course?</s><pad><pad>
+4 -2.253 <pad> Is there a prerequisite for advanced machine learning?</s><pad>
 ----------------------------------------------------------------

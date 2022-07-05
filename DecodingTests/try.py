@@ -89,3 +89,17 @@ print('Output:')
 for i, seq in enumerate(tok.batch_decode(out6['sequences'])):
     print(f'{i+1} {out6["sequences_scores"][i].item():.3f} {seq}')
 print(64*'-')
+
+out7 = beam_search(unifiedskg.pretrain_model, **deepcopy(unifiedskg_args), model2=unifiedskg.pretrain_model, model2_kwargs=unifiedskg_model_kwargs, **unifiedskg_model_kwargs)
+print('Joint decoding: 1 - UnifiedSKG, 2 - UnifiedSKG')
+print('Output:')
+for i, seq in enumerate(tok.batch_decode(out7['sequences'])):
+    print(f'{i+1} {out7["sequences_scores"][i].item():.3f} {seq}')
+print(64*'-')
+
+out8 = beam_search(paraphrase, **deepcopy(paraphrase_args), model2=paraphrase, model2_kwargs=paraphrase_model_kwargs, **paraphrase_model_kwargs)
+print('Joint decoding: 1 - Paraphrase, 2 - Paraphrase')
+print('Output:')
+for i, seq in enumerate(tok.batch_decode(out8['sequences'])):
+    print(f'{i+1} {out8["sequences_scores"][i].item():.3f} {seq}')
+print(64*'-')

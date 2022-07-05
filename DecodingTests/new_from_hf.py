@@ -221,7 +221,7 @@ def beam_search(
             next_token_logits2 = outputs2.logits[:, -1, :]
             # hack: adjust tokens for Marian. For Marian we have to make sure that the `pad_token_id`
             # cannot be generated both before and after the `nn.functional.log_softmax` operation.
-            next_token_logits2 = model2.adjust_logits_during_generation(next_token_logits, cur_len=cur_len)
+            next_token_logits2 = model2.adjust_logits_during_generation(next_token_logits2, cur_len=cur_len)
             # Important !
             trim_size = min(min(next_token_logits.size(-1), next_token_logits2.size(-1)), max_vocab_size)
             #print(f'Trimming to {trim_size}')
