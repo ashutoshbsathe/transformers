@@ -224,7 +224,7 @@ def beam_search(
             next_token_logits2 = model2.adjust_logits_during_generation(next_token_logits2, cur_len=cur_len)
             # Important !
             trim_size = min(min(next_token_logits.size(-1), next_token_logits2.size(-1)), max_vocab_size)
-            #print(f'Trimming to {trim_size}')
+            #print(f'Trimming to {trim_size}, logits1.size() = {next_token_logits.size()}, logits2.size() = {next_token_logits2.size()}')
             next_token_scores = nn.functional.log_softmax(
                     next_token_logits[..., :trim_size], dim=-1
                 ) + nn.functional.log_softmax(
@@ -236,7 +236,9 @@ def beam_search(
             )  # (batch_size * num_beams, vocab_size)
         #print(f'next_token_scores.size() = {next_token_scores.size()}')
         next_token_scores_processed = logits_processor(input_ids, next_token_scores)
+        #print(f'next_token_scores_processed.size() = {next_token_scores_processed.size()}')
         next_token_scores = next_token_scores_processed + beam_scores[:, None].expand_as(next_token_scores)
+        #print(f'next_token_scores_added.size() = {next_token_scores.size()}')
 
         # Store scores, attentions and hidden_states when required
         if return_dict_in_generate:
