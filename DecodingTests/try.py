@@ -77,29 +77,57 @@ with torch.no_grad():
 
     # Joint decoding 
     out5 = beam_search(paraphrase, **deepcopy(paraphrase_args), model2=unifiedskg.pretrain_model, model2_kwargs=deepcopy(unifiedskg_model_kwargs), **deepcopy(paraphrase_model_kwargs))
-    print('Joint decoding: 1 - Paraphrase, 2 - UnifiedSKG')
+    print('Joint decoding: 1 - Paraphrase, 2 - UnifiedSKG: p = 0')
     print('Output:')
     for i, seq in enumerate(tok.batch_decode(out5['sequences'])):
         print(f'{i+1} {out5["sequences_scores"][i].item():.3f} {seq}\n{out5["sequences"][i]}')
     print(64*'-')
 
     out6 = beam_search(unifiedskg.pretrain_model, **deepcopy(unifiedskg_args), model2=paraphrase, model2_kwargs=deepcopy(paraphrase_model_kwargs), **deepcopy(unifiedskg_model_kwargs))
-    print('Joint decoding: 1 - UnifiedSKG, 2 - Paraphrase')
+    print('Joint decoding: 1 - UnifiedSKG, 2 - Paraphrase: p = 0')
     print('Output:')
     for i, seq in enumerate(tok.batch_decode(out6['sequences'])):
         print(f'{i+1} {out6["sequences_scores"][i].item():.3f} {seq}\n{out6["sequences"][i]}')
     print(64*'-')
 
     out7 = beam_search(unifiedskg.pretrain_model, **deepcopy(unifiedskg_args), model2=unifiedskg.pretrain_model, model2_kwargs=deepcopy(unifiedskg_model_kwargs), **deepcopy(unifiedskg_model_kwargs))
-    print('Joint decoding: 1 - UnifiedSKG, 2 - UnifiedSKG')
+    print('Joint decoding: 1 - UnifiedSKG, 2 - UnifiedSKG: p = 0')
     print('Output:')
     for i, seq in enumerate(tok.batch_decode(out7['sequences'])):
         print(f'{i+1} {out7["sequences_scores"][i].item():.3f} {seq}\n{out7["sequences"][i]}')
     print(64*'-')
 
     out8 = beam_search(paraphrase, **deepcopy(paraphrase_args), model2=paraphrase, model2_kwargs=deepcopy(paraphrase_model_kwargs), **deepcopy(paraphrase_model_kwargs))
-    print('Joint decoding: 1 - Paraphrase, 2 - Paraphrase')
+    print('Joint decoding: 1 - Paraphrase, 2 - Paraphrase: p = 0')
     print('Output:')
     for i, seq in enumerate(tok.batch_decode(out8['sequences'])):
         print(f'{i+1} {out8["sequences_scores"][i].item():.3f} {seq}\n{out8["sequences"][i]}')
+    print(64*'-')
+
+    out9 = beam_search(unifiedskg.pretrain_model, **deepcopy(unifiedskg_args), model2=unifiedskg.pretrain_model, model2_kwargs=deepcopy(unifiedskg_model_kwargs), **deepcopy(unifiedskg_model_kwargs), gmf_p=1)
+    print('Joint decoding: 1 - UnifiedSKG, 2 - UnifiedSKG: p = 1')
+    print('Output:')
+    for i, seq in enumerate(tok.batch_decode(out9['sequences'])):
+        print(f'{i+1} {out9["sequences_scores"][i].item():.3f} {seq}\n{out9["sequences"][i]}')
+    print(64*'-')
+
+    out10 = beam_search(paraphrase, **deepcopy(paraphrase_args), model2=paraphrase, model2_kwargs=deepcopy(paraphrase_model_kwargs), **deepcopy(paraphrase_model_kwargs), gmf_p=1)
+    print('Joint decoding: 1 - Paraphrase, 2 - Paraphrase: p = 1')
+    print('Output:')
+    for i, seq in enumerate(tok.batch_decode(out10['sequences'])):
+        print(f'{i+1} {out10["sequences_scores"][i].item():.3f} {seq}\n{out10["sequences"][i]}')
+    print(64*'-')
+
+    out11 = beam_search(unifiedskg.pretrain_model, **deepcopy(unifiedskg_args), model2=paraphrase, model2_kwargs=deepcopy(paraphrase_model_kwargs), **deepcopy(unifiedskg_model_kwargs), gmf_p=0.5)
+    print('Joint decoding: 1 - UnifiedSKG, 2 - Paraphrase: p = 0.5')
+    print('Output:')
+    for i, seq in enumerate(tok.batch_decode(out11['sequences'])):
+        print(f'{i+1} {out11["sequences_scores"][i].item():.3f} {seq}\n{out11["sequences"][i]}')
+    print(64*'-')
+
+    out12 = beam_search(paraphrase, **deepcopy(paraphrase_args), model2=unifiedskg.pretrain_model, model2_kwargs=deepcopy(unifiedskg_model_kwargs), **deepcopy(paraphrase_model_kwargs), gmf_p=0.5)
+    print('Joint decoding: 1 - Paraphrase, 2 - UnifiedSKG: p = 0.5')
+    print('Output:')
+    for i, seq in enumerate(tok.batch_decode(out12['sequences'])):
+        print(f'{i+1} {out12["sequences_scores"][i].item():.3f} {seq}\n{out12["sequences"][i]}')
     print(64*'-')

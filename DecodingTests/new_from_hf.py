@@ -19,6 +19,12 @@ from transformers.generation_utils import (
 # from transformers.pytorch_utils import torch_int_div
 from transformers import BartTokenizer, BartForConditionalGeneration
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+
+def gmf(x1, x2, p=1):
+    if p is None or p == 0:
+        return (x1 * x2) ** 0.5
+    return (0.5 * ((x1 ** p) + (x2 ** p))) ** (1./p)
+
 def beam_search(
     model,
     input_ids: torch.LongTensor,
@@ -36,6 +42,7 @@ def beam_search(
     model2: Optional[PreTrainedModel] = None,
     model2_kwargs: Optional[dict] = None,
     max_vocab_size: Optional[int] = 32102,
+    gmf_p: Optional[int] = 0,
     **model_kwargs,
 ) -> Union[BeamSearchOutput, torch.LongTensor]:
     r"""
@@ -225,11 +232,15 @@ def beam_search(
             # Important !
             trim_size = min(min(next_token_logits.size(-1), next_token_logits2.size(-1)), max_vocab_size)
             #print(f'Trimming to {trim_size}, logits1.size() = {next_token_logits.size()}, logits2.size() = {next_token_logits2.size()}')
-            next_token_scores = nn.functional.log_softmax(
-                    next_token_logits[..., :trim_size], dim=-1
-                ) + nn.functional.log_softmax(
-                        next_token_logits2[..., :trim_size], dim=-1
-            )  # (batch_size * num_beams, vocab_size)
+            next_token_scores = torch.log(
+                    gmf(
+                        nn.functional.softmax(
+                            next_token_logits[..., :trim_size], dim=-1
+                        ), nn.functional.softmax(
+                            next_token_logits2[..., :trim_size], dim=-1
+                        ), gmf_p 
+                    )
+                ) # (batch_size * num_beams, vocab_size)
         else:
             next_token_scores = nn.functional.log_softmax(
                 next_token_logits, dim=-1
