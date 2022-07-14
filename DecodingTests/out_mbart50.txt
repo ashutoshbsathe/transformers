@@ -1,0 +1,40 @@
+Standalone Hindi --> English [HF generate]
+Input: ""संयुक्त राष्ट्र के प्रमुख का कहना है कि सीरिया में कोई सैन्य समाधान नहीं है""
+Output:
+1 -0.395 The head of the United Nations says there is no military solution in Syria
+2 -0.424 The head of the UN says there is no military solution in Syria
+3 -0.454 UN chief says there is no military solution in Syria
+4 -0.510 The head of the United Nations says there is no military solution in Syria.
+Standalone Hindi --> English [Our beam_search]
+Input: ""संयुक्त राष्ट्र के प्रमुख का कहना है कि सीरिया में कोई सैन्य समाधान नहीं है""
+Output:
+1 -0.395 The head of the United Nations says there is no military solution in Syria
+2 -0.424 The head of the UN says there is no military solution in Syria
+3 -0.454 UN chief says there is no military solution in Syria
+4 -0.510 The head of the United Nations says there is no military solution in Syria.
+----------------------------------------------------------------
+Standalone Arabic --> English [HF generate]
+Input: ""الأمين العام للأمم المتحدة يقول إنه لا يوجد حل عسكري في سوريا.""
+Output:
+1 -0.240 The Secretary-General of the United Nations says there is no military solution in Syria.
+2 -0.246 The Secretary-General of the United Nations says that there is no military solution in Syria.
+3 -0.262 The Secretary-General of the United Nations says there is no military solution to Syria.
+4 -0.276 The Secretary General of the United Nations says there is no military solution in Syria.
+Standalone Arabic --> English [Our beam_search]
+Input: ""الأمين العام للأمم المتحدة يقول إنه لا يوجد حل عسكري في سوريا.""
+Output:
+1 -0.240 The Secretary-General of the United Nations says there is no military solution in Syria.
+2 -0.246 The Secretary-General of the United Nations says that there is no military solution in Syria.
+3 -0.262 The Secretary-General of the United Nations says there is no military solution to Syria.
+4 -0.276 The Secretary General of the United Nations says there is no military solution in Syria.
+----------------------------------------------------------------
+Joint decoding: 1 - Hindi --> English, 2 - Arabic --> English
+1 -0.569 The head of the United Nations says there is no military solution in Syria.
+2 -0.616 The head of the UN says there is no military solution in Syria.
+3 -0.628 The head of the United Nations says there is no military solution to Syria.
+4 -0.841 The head of the United Nations says that there is no military solution in Syria
+Joint decoding: 1 - Arabic --> English, 2 - Hindi --> English
+1 -0.569 The head of the United Nations says there is no military solution in Syria.
+2 -0.616 The head of the UN says there is no military solution in Syria.
+3 -0.628 The head of the United Nations says there is no military solution to Syria.
+4 -0.841 The head of the United Nations says that there is no military solution in Syria

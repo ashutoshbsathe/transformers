@@ -42,6 +42,8 @@ with torch.no_grad():
     for i, seq in enumerate(tokenizer.batch_decode(out2['sequences'], skip_special_tokens=True)):
         print(f'{i+1} {out2["sequences_scores"][i].item():.3f} {seq}')
 
+    print(64*'-')
+
     # Standalone Arabic --> English
     tokenizer.src_lang = "ar_AR"
     encoded_ar = tokenizer(article_ar, return_tensors="pt")
@@ -61,4 +63,15 @@ with torch.no_grad():
     for i, seq in enumerate(tokenizer.batch_decode(out4['sequences'], skip_special_tokens=True)):
         print(f'{i+1} {out4["sequences_scores"][i].item():.3f} {seq}')
 
+    print(64*'-')
 
+    # Joint decoding 
+    out5 = beam_search(model, **deepcopy(hi_args), model2=model, model2_kwargs=deepcopy(ar_model_kwargs), **deepcopy(hi_model_kwargs))
+    print('Joint decoding: 1 - Hindi --> English, 2 - Arabic --> English')
+    for i, seq in enumerate(tokenizer.batch_decode(out5['sequences'], skip_special_tokens=True)):
+        print(f'{i+1} {out5["sequences_scores"][i].item():.3f} {seq}')
+
+    out6 = beam_search(model, **deepcopy(ar_args), model2=model, model2_kwargs=deepcopy(hi_model_kwargs), **deepcopy(ar_model_kwargs))
+    print('Joint decoding: 1 - Arabic --> English, 2 - Hindi --> English')
+    for i, seq in enumerate(tokenizer.batch_decode(out6['sequences'], skip_special_tokens=True)):
+        print(f'{i+1} {out6["sequences_scores"][i].item():.3f} {seq}')

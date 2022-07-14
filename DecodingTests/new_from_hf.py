@@ -41,7 +41,7 @@ def beam_search(
     synced_gpus: Optional[bool] = False,
     model2: Optional[PreTrainedModel] = None,
     model2_kwargs: Optional[dict] = None,
-    max_vocab_size: Optional[int] = 32102,
+    max_vocab_size: Optional[int] = 1e9,
     gmf_p: Optional[int] = 0,
     **model_kwargs,
 ) -> Union[BeamSearchOutput, torch.LongTensor]:
