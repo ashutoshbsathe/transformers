@@ -52,7 +52,7 @@ with torch.no_grad():
             })
         with open(root_dir + f'{A}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
-    elif a_to_b_to_c:
+    if a_to_b_to_c:
         data = []
         src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(A))
         tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(B))
@@ -82,7 +82,7 @@ with torch.no_grad():
             data.append({
                 'src': src,
                 'tgt': tgt,
-                'translations': translations[i*4:(i+1)*4],
+                'translations': translates[i*4:(i+1)*4],
             })
         with open(root_dir + f'{A}->{B}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
