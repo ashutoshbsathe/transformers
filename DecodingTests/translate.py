@@ -1,4 +1,5 @@
 import torch 
+import datasets
 from transformers import MBart50Tokenizer, MBartForConditionalGeneration
 from tqdm import tqdm
 from new_from_hf import beam_search
@@ -26,7 +27,7 @@ tokenizer = MBart50Tokenizer.from_pretrained("facebook/mbart-large-50-many-to-ma
 
 a_to_c = False  
 a_to_b_to_c = False 
-a_to_b_joint_to_c = True
+a_to_b_joint_to_c = False
 
 a_sentences = open(root_dir + fname + f'.{A}', encoding='utf-8').readlines()
 c_sentences = open(root_dir + fname + f'.{C}', encoding='utf-8').readlines()
@@ -151,8 +152,25 @@ with torch.no_grad():
             data.append({
                 'src': src,
                 'tgt': tgt,
-                'translates': translates[i*4:(i+1)*4],
+                'translations': translates[i*4:(i+1)*4],
             })
         assert len(data) == len(a_sentences[:num_samples])
         with open(root_dir + f'({A}+->{B})->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
+
+files = [
+    root_dir + f'{A}->{C}.pkl',
+    root_dir + f'{A}->{B}->{C}.pkl',
+    root_dir + f'({A}+->{B})->{C}.pkl',
+]
+for fname in files:
+    print(fname)
+    with open(fname, 'rb') as f:
+        data = pickle.load(f)
+    bleu = datasets.load_metric('bleu', keep_in_memory=True)
+    tokenizer.src_lang = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
+    for datum in tqdm(data):
+        for pred in datum['translations']:
+            bleu.add(prediction=tokenizer.tokenize(pred), reference=[tokenizer.tokenize(datum['tgt'])])
+    print('BLEU:', bleu.compute())
+    print(64*'-')
