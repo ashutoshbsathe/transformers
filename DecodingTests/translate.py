@@ -1,5 +1,6 @@
 import torch 
 import datasets
+import evaluate
 from transformers import MBart50Tokenizer, MBartForConditionalGeneration
 from tqdm import tqdm
 from new_from_hf import beam_search
@@ -22,12 +23,12 @@ gen_args = dict(
     return_args=True,
 )
 
-model = MBartForConditionalGeneration.from_pretrained("facebook/mbart-large-50-many-to-many-mmt")
+model = MBartForConditionalGeneration.from_pretrained("facebook/mbart-large-50-many-to-many-mmt").cuda()
 tokenizer = MBart50Tokenizer.from_pretrained("facebook/mbart-large-50-many-to-many-mmt", use_fast=False)
 
-a_to_c = False  
+a_to_c = False 
 a_to_b_to_c = False 
-a_to_b_joint_to_c = False
+a_to_b_joint_to_c = False 
 
 a_sentences = open(root_dir + fname + f'.{A}', encoding='utf-8').readlines()
 c_sentences = open(root_dir + fname + f'.{C}', encoding='utf-8').readlines()
@@ -40,8 +41,8 @@ with torch.no_grad():
         src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(A))
         tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
         tokenizer.src_lang = src_key 
-        for src, tgt in tqdm(zip(a_sentences, c_sentences), total=len(a_sentences)):
-            encoded_src = tokenizer(src, return_tensors='pt')
+        for src, tgt in tqdm(zip(a_sentences[:num_samples], c_sentences[:num_samples]), total=num_samples):
+            encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
             out, args = model.generate(
                 forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
                 **encoded_src,
@@ -60,8 +61,8 @@ with torch.no_grad():
         tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(B))
         tokenizer.src_lang = src_key
         b_sentences = []
-        for src, tgt in tqdm(zip(a_sentences, c_sentences), total=len(a_sentences)):
-            encoded_src = tokenizer(src, return_tensors='pt')
+        for src, tgt in tqdm(zip(a_sentences[:num_samples], c_sentences[:num_samples]), total=num_samples):
+            encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
             out, args = model.generate(
                 forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
                 **encoded_src,
@@ -73,14 +74,14 @@ with torch.no_grad():
         tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
         tokenizer.src_lang = src_key
         for src in tqdm(b_sentences):
-            encoded_src = tokenizer(src, return_tensors='pt')
+            encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
             out, args = model.generate(
                 forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
                 **encoded_src,
                 **gen_args,
             )
             translates.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True)[:2])
-        for i, (src, tgt) in enumerate(tqdm(zip(a_sentences, c_sentences), total=len(a_sentences))):
+        for i, (src, tgt) in enumerate(tqdm(zip(a_sentences[:num_samples], c_sentences[:num_samples]), total=num_samples)):
             data.append({
                 'src': src,
                 'tgt': tgt,
@@ -97,7 +98,7 @@ with torch.no_grad():
         a_to_c_args = [] 
         # Need only args 
         for src in tqdm(a_sentences[:num_samples]):
-            encoded_src = tokenizer(src, return_tensors='pt')
+            encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
             _, args = model.generate(
                 forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
                 **encoded_src,
@@ -112,7 +113,7 @@ with torch.no_grad():
         b_sentences = []
         # Need only 2 of the B 
         for src in tqdm(a_sentences[:num_samples]):
-            encoded_src = tokenizer(src, return_tensors='pt')
+            encoded_src = {k:v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
             out, _ = model.generate(
                 forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
                 **encoded_src,
@@ -126,7 +127,7 @@ with torch.no_grad():
         tokenizer.src_lang = src_key
         b_to_c_args = []
         for src in tqdm(b_sentences):
-            encoded_src = tokenizer(src, return_tensors='pt')
+            encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
             _, args = model.generate(
                 forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key], 
                 **encoded_src, 
@@ -167,10 +168,12 @@ for fname in files:
     print(fname)
     with open(fname, 'rb') as f:
         data = pickle.load(f)
-    bleu = datasets.load_metric('bleu', keep_in_memory=True)
-    tokenizer.src_lang = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
+    bleu = evaluate.load('bleu', keep_in_memory=True)
+    predictions = []
+    references = []
     for datum in tqdm(data):
-        for pred in datum['translations']:
-            bleu.add(prediction=tokenizer.tokenize(pred), reference=[tokenizer.tokenize(datum['tgt'])])
-    print('BLEU:', bleu.compute())
+        for pred in datum['translations'][:1]:
+            predictions.append(pred)
+            references.append([datum['tgt']])
+    print('BLEU:', bleu.compute(predictions=predictions, references=references))
     print(64*'-')
