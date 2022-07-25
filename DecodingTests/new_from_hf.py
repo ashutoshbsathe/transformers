@@ -20,10 +20,10 @@ from transformers.generation_utils import (
 from transformers import BartTokenizer, BartForConditionalGeneration
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
-def gmf(x1, x2, p=1):
+def gmf(x1, x2, p=1, w1=1, w2=1):
     if p is None or p == 0:
         return (x1 * x2) ** 0.5
-    return (0.5 * ((x1 ** p) + (x2 ** p))) ** (1./p)
+    return ((1. / (w1 + w2)) * (((w1 * x1) ** p) + ((w2 * x2) ** p))) ** (1./p)
 
 def beam_search(
     model,
@@ -42,7 +42,7 @@ def beam_search(
     model2: Optional[PreTrainedModel] = None,
     model2_kwargs: Optional[dict] = None,
     max_vocab_size: Optional[int] = 1e9,
-    gmf_p: Optional[int] = 0,
+    gmf_kwargs: Optional[dict] = {'p': 1, 'w1': 1, 'w2': 1},
     **model_kwargs,
 ) -> Union[BeamSearchOutput, torch.LongTensor]:
     r"""
@@ -238,7 +238,7 @@ def beam_search(
                             next_token_logits[..., :trim_size], dim=-1
                         ), nn.functional.softmax(
                             next_token_logits2[..., :trim_size], dim=-1
-                        ), gmf_p 
+                        ), **gmf_kwargs
                     )
                 ) # (batch_size * num_beams, vocab_size)
         else:
