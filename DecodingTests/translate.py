@@ -3,16 +3,17 @@ import datasets
 import evaluate
 from transformers import MBart50Tokenizer, MBartForConditionalGeneration
 from tqdm import tqdm
-from new_from_hf import beam_search
+import numpy as np
 from copy import deepcopy
 import pickle 
+from new_from_hf import beam_search
 
 root_dir = '/mnt/a99/d0/absathe/infonas/absathe/DecodingTests/Translation/OPUS/triple_test/'
 fname = 'opus.de-fr-test'
 
-A = 'de'
+A = 'fr'
 B = 'en'
-C = 'fr'
+C = 'de'
 
 gen_args = dict(
     num_beams=4,
@@ -28,7 +29,7 @@ tokenizer = MBart50Tokenizer.from_pretrained("facebook/mbart-large-50-many-to-ma
 
 a_to_c = False 
 a_to_b_to_c = False 
-a_to_b_joint_to_c = False 
+a_to_b_joint_to_c = True 
 
 a_sentences = open(root_dir + fname + f'.{A}', encoding='utf-8').readlines()
 c_sentences = open(root_dir + fname + f'.{C}', encoding='utf-8').readlines()
@@ -90,7 +91,6 @@ with torch.no_grad():
         with open(root_dir + f'{A}->{B}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
     if a_to_b_joint_to_c:
-        data = []
         # Going A to C for collecting args
         src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(A))
         tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
@@ -134,30 +134,42 @@ with torch.no_grad():
                 **gen_args,
             )
             b_to_c_args.append(args)
+        for p in np.arange(-1, 2.5, 0.5):
+            for w in [1./2, 1, 2]:
+                # Joint A to C and B to C
+                print(f'p={p:.3f}, w_ac={w:.3f}, w_bc=1.000')
+                data = []
+                translates = []
+                for i_b, src_b in enumerate(tqdm(b_sentences)):
+                    i_a = int(i_b/2)
+            
+                    ac_args = deepcopy(a_to_c_args[i_a])
+                    bc_args = deepcopy(b_to_c_args[i_b])
+                    ac_model_kwargs = ac_args.pop('model_kwargs')
+                    bc_model_kwargs = bc_args.pop('model_kwargs')
 
-        # Joint A to C and B to C
-        translates = []
-        for i_b, src_b in enumerate(tqdm(b_sentences)):
-            i_a = int(i_b/2)
-    
-            ac_args = deepcopy(a_to_c_args[i_a])
-            bc_args = b_to_c_args[i_b]
-            ac_model_kwargs = ac_args.pop('model_kwargs')
-            bc_model_kwargs = bc_args.pop('model_kwargs')
+                    out = beam_search(model, **deepcopy(ac_args), model2=model, model2_kwargs=deepcopy(bc_model_kwargs), **deepcopy(ac_model_kwargs), gmf_kwargs={'p': p, 'w1': w, 'w2': 1})
 
-            out = beam_search(model, **deepcopy(ac_args), model2=model, model2_kwargs=deepcopy(bc_model_kwargs), **deepcopy(ac_model_kwargs))
+                    translates.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True)[:2])
 
-            translates.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True)[:2])
-
-        for i, (src, tgt) in enumerate(tqdm(zip(a_sentences[:num_samples], c_sentences[:num_samples]), total=len(a_sentences[:num_samples]))):
-            data.append({
-                'src': src,
-                'tgt': tgt,
-                'translations': translates[i*4:(i+1)*4],
-            })
-        assert len(data) == len(a_sentences[:num_samples])
-        with open(root_dir + f'({A}+->{B})->{C}.pkl', 'wb') as f:
-            pickle.dump(data, f)
+                predictions = []
+                references = []
+                bleu = evaluate.load('bleu', keep_in_memory=True)
+                for i, (src, tgt) in enumerate(tqdm(zip(a_sentences[:num_samples], c_sentences[:num_samples]), total=len(a_sentences[:num_samples]))):
+                    data.append({
+                        'src': src,
+                        'tgt': tgt,
+                        'translations': translates[i*4:(i+1)*4],
+                    })
+                    for pred in translates[i*4:(i+1)*4]:
+                        predictions.append(pred)
+                        references.append([tgt])
+                assert len(data) == len(a_sentences[:num_samples])
+                output = bleu.compute(predictions=predictions, references=references)
+                print(output)
+                bleu_score = output['bleu']
+                with open(root_dir + f'({A}+->{B})->{C}|p={p:.3f}|w_ac={w:.3f}|w_bc=1|bleu={bleu_score:.3f}.pkl', 'wb') as f:
+                    pickle.dump(data, f)
 
 files = [
     root_dir + f'{A}->{C}.pkl',
