@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 import pickle 
 from transformers import (
     LogitsProcessorList,
@@ -23,6 +24,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 def gmf(x1, x2, p=1, w1=1, w2=1):
     if p is None or p == 0:
         return (x1 * x2) ** 0.5
+    elif p == np.inf:
+        return torch.maximum(x1, x2)
+    elif p == -np.inf:
+        return torch.minimum(x1, x2)
     return ((1. / (w1 + w2)) * (((w1 * x1) ** p) + ((w2 * x2) ** p))) ** (1./p)
 
 def beam_search(

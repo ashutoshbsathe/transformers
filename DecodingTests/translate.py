@@ -31,8 +31,8 @@ tokenizer = MBart50Tokenizer.from_pretrained("facebook/mbart-large-50-many-to-ma
 
 a_to_c = False 
 a_to_b_to_c = False 
-a_to_b_joint_to_c = False
-a_to_b_multiple_to_c = True
+a_to_b_joint_to_c = True
+a_to_b_multiple_to_c = False
 
 a_sentences = open(root_dir + fname + f'.{A}', encoding='utf-8').readlines()
 c_sentences = open(root_dir + fname + f'.{C}', encoding='utf-8').readlines()
@@ -94,51 +94,76 @@ with torch.no_grad():
         with open(root_dir + f'{A}->{B}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
     if a_to_b_joint_to_c:
-        # Going A to C for collecting args
-        src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(A))
-        tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
-        tokenizer.src_lang = src_key
-        a_to_c_args = [] 
-        # Need only args 
-        for src in tqdm(a_sentences[:num_samples]):
-            encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
-            _, args = model.generate(
-                forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
-                **encoded_src,
-                **gen_args,
-            )
-            a_to_c_args.append(args)
+        save_dir = root_dir + '/a_to_b_joint_to_c/'
+        os.makedirs(save_dir, exist_ok=True)
 
-        # Going A to B 
-        src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(A))
-        tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(B))
-        tokenizer.src_lang = src_key
-        b_sentences = []
-        # Need only 2 of the B 
-        for src in tqdm(a_sentences[:num_samples]):
-            encoded_src = {k:v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
-            out, _ = model.generate(
-                forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
-                **encoded_src,
-                **gen_args,
-            )
-            b_sentences.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True)[:2])
-        
-        # Going from B to C and collecting args
-        src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(B))
-        tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
-        tokenizer.src_lang = src_key
-        b_to_c_args = []
-        for src in tqdm(b_sentences):
-            encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
-            _, args = model.generate(
-                forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key], 
-                **encoded_src, 
-                **gen_args,
-            )
-            b_to_c_args.append(args)
-        for p in np.arange(-1, 2.5, 0.5):
-            for w in [1./2, 1, 2]:
+        a_to_c_args_save_path = save_dir + f'({A}+->{B})->{C}.a_to_c_args.pkl'
+        if os.path.exists(a_to_c_args_save_path):
+            with open(a_to_c_args_save_path, 'rb') as f:
+                a_to_c_args = pickle.load(f)
+        else:
+            # Going A to C for collecting args
+            src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(A))
+            tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
+            tokenizer.src_lang = src_key
+            a_to_c_args = [] 
+            # Need only args 
+            for src in tqdm(a_sentences[:num_samples]):
+                encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
+                _, args = model.generate(
+                    forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
+                    **encoded_src,
+                    **gen_args,
+                )
+                a_to_c_args.append(args)
+            with open(a_to_c_args_save_path, 'wb') as f:
+                pickle.dump(a_to_c_args, f)
+
+        b_sentences_save_path = save_dir + f'({A}+->{B})->{C}.b_sentences.pkl'
+        if os.path.exists(b_sentences_save_path):
+            with open(b_sentences_save_path, 'rb') as f:
+                b_sentences = pickle.load(f)
+        else:
+            # Going A to B 
+            src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(A))
+            tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(B))
+            tokenizer.src_lang = src_key
+            b_sentences = []
+            # Need only 2 of the B 
+            for src in tqdm(a_sentences[:num_samples]):
+                encoded_src = {k:v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
+                out, _ = model.generate(
+                    forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key],
+                    **encoded_src,
+                    **gen_args,
+                )
+                b_sentences.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True)[:2])
+            with open(b_sentences_save_path, 'wb') as f:
+                pickle.dump(b_sentences, f)
+ 
+        b_to_c_args_save_path = save_dir + f'({A}+->{B})->{C}.b_to_c_args.pkl'
+        if os.path.exists(b_to_c_args_save_path):
+            with open(b_to_c_args_save_path, 'rb') as f:
+                b_to_c_args = pickle.load(f)
+        else:       
+            # Going from B to C and collecting args
+            src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(B))
+            tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
+            tokenizer.src_lang = src_key
+            b_to_c_args = []
+            for src in tqdm(b_sentences):
+                encoded_src = {k: v.cuda() for k, v in tokenizer(src, return_tensors='pt').items()}
+                _, args = model.generate(
+                    forced_bos_token_id=tokenizer.lang_code_to_id[tgt_key], 
+                    **encoded_src, 
+                    **gen_args,
+                )
+                b_to_c_args.append(args)
+            with open(b_to_c_args_save_path, 'wb') as f:
+                pickle.dump(b_to_c_args, f)
+
+        for p in [-np.inf, np.inf]:
+            for w in [1]:
                 # Joint A to C and B to C
                 print(f'p={p:.3f}, w_ac={w:.3f}, w_bc=1.000')
                 data = []
@@ -220,7 +245,7 @@ with torch.no_grad():
             with open(b_to_c_args_save_path, 'wb') as f:
                 pickle.dump(b_to_c_args, f)
 
-        for p in np.arange(-5, 5.5, 0.5):
+        for p in [-np.inf, np.inf]:
             for w in [1]:
                 # Joint B1 to C and B2 to C
                 print(f'p={p:.3f}, w_b1c={w:.3f}, w_b2c=1.000')
@@ -258,7 +283,6 @@ with torch.no_grad():
                 bleu_score = output['bleu']
                 with open(root_dir + f'{A}->({B})+->{C}|p={p:.3f}|w_b1c={w:.3f}|w_b2c=1|bleu={bleu_score:.3f}.pkl', 'wb') as f:
                     pickle.dump(data, f)
-
 
 
 files = [
