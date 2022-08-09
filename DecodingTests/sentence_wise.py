@@ -1,10 +1,14 @@
 import pickle 
+from multiprocessing import Pool
+from copy import deepcopy
 import evaluate 
 from transformers import MBart50Tokenizer
 from tqdm import tqdm
+import numpy as np
 root_dir = '/mnt/a99/d0/absathe/infonas/absathe/DecodingTests/Translation/OPUS/triple_test/'
 
 tokenizer = MBart50Tokenizer.from_pretrained('facebook/mbart-large-50-many-to-many-mmt', use_fast=False)
+bleu_global = evaluate.load('bleu')
 
 A = 'fr'
 B = 'en'
@@ -21,28 +25,43 @@ with open(a_to_c_path, 'rb') as f:
 with open(a_to_b_to_c_path, 'rb') as f:
     abc_data = pickle.load(f)
 
-if 'bleu' not in ac_data[0].keys():
-    for i, x in enumerate(tqdm(ac_data)):
-        ac_data[i]['bleu'] = []
-        for pred in x['translations']:
-            bleu = evaluate.load('bleu')
+def get_bleu_scores(x):
+    ret = x
+    ret['bleu'] = []
+    for pred in x['translations']:
+        bleu = deepcopy(bleu_global)
+        try:
             results = bleu.compute(references=[[x['tgt'].strip()]], predictions=[pred], tokenizer=tokenizer.tokenize)
-            ac_data[i]['bleu'].append(results['bleu'])
+        except Exception as e:
+            print(str(e))
+            results = {'bleu': 0}
+        ret['bleu'].append(results['bleu'])
+        del bleu, results
+    return ret 
+
+if 'bleu' not in ac_data[0].keys():
+    with Pool(64) as p:
+        ac_data = list(tqdm(p.imap(get_bleu_scores, ac_data), total=len(ac_data)))
     with open(a_to_c_path, 'wb') as f:
         pickle.dump(ac_data, f)
 
 if 'bleu' not in abc_data[0].keys():
-    compute_bleu = True 
-for i, x in enumerate(tqdm(abc_data)):
-    if compute_bleu:
-        abc_data[i]['bleu'] = []
-    for j, pred in x['translations']:
-        if compute_bleu:
-            bleu = evaluate.load('bleu')
-            results = bleu.compute(references=[[x['tgt'].strip()]], predictions=[pred], tokenizer=tokenizer.tokenize)
-            abc_data[i]['bleu'].append(results['bleu'])
-        if abc_data[i]['bleu'][j] < ac_data[i]['bleu'][j]:
-            print(pred)
-if compute_bleu:
+    with Pool(64) as p:
+        abc_data = list(tqdm(p.imap(get_bleu_scores, abc_data), total=len(abc_data)))
     with open(a_to_b_to_c_path, 'wb') as f:
         pickle.dump(abc_data, f)
+
+ac_bleu = [bleu_ij for bleu_i in ac_data for bleu_ij in bleu_i['bleu']]
+abc_bleu = [bleu_ij for bleu_i in abc_data for bleu_ij in bleu_i['bleu']]
+
+count = 0
+overall_bleu = []
+for i, x in enumerate(tqdm(ac_data)):
+    for j, pred in enumerate(x['translations']):
+        if ac_data[i]['bleu'][j] > abc_data[i]['bleu'][j]:
+            count += 1
+        overall_bleu.append(max(ac_data[i]['bleu'][j], abc_data[i]['bleu'][j]))
+print(count)
+print(np.mean(ac_bleu))
+print(np.mean(abc_bleu))
+print(np.mean(overall_bleu))
