@@ -261,9 +261,16 @@ def beam_search(
             if output_scores:
                 scores += (next_token_scores_processed,)
             if output_attentions:
-                decoder_attentions += (
-                    (outputs.decoder_attentions,) if model.config.is_encoder_decoder else (outputs.attentions,)
-                )
+                if model2 is None:
+                    decoder_attentions += (
+                        (outputs.decoder_attentions,) if model.config.is_encoder_decoder else (outputs.attentions,)
+                    )
+                else:
+                    decoder_attentions += (
+                        (outputs.decoder_attentions, outputs2.decoder_attentions)
+                        if model.config.is_encoder_decoder and model2.config.is_encoder_decoder else
+                        (outputs.attentions, outputs2.attentions)
+                    )
                 if model.config.is_encoder_decoder:
                     cross_attentions += (outputs.cross_attentions,)
 
