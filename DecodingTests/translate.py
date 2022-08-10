@@ -28,6 +28,18 @@ gen_args = dict(
     return_args=True,
 )
 
+def to_cpu(d):
+    if torch.is_tensor(d):
+        return d.detach().cpu()
+    elif isinstance(d, list):
+        return [to_cpu(d_i) for d_i in d]
+    elif isinstance(d, tuple):
+        return tuple(to_cpu(d_i) for d_i in d)
+    elif isinstance(d, dict):
+        return {k: to_cpu(v) for k, v in d.items()}
+    else:
+        raise ValueError(f'Invalid type for putting to CPU. Expected one of `torch.Tensor`, `list`, `tuple` or `dict`. Found {type(d)}')
+
 model = MBartForConditionalGeneration.from_pretrained("facebook/mbart-large-50-many-to-many-mmt").cuda()
 tokenizer = MBart50Tokenizer.from_pretrained("facebook/mbart-large-50-many-to-many-mmt", use_fast=False)
 
@@ -58,8 +70,9 @@ with torch.no_grad():
                 'src': src,
                 'tgt': tgt, 
                 'translations': tokenizer.batch_decode(out['sequences'], skip_special_tokens=True),
-                'outputs': out,
+                'outputs': to_cpu(out),
             })
+            del out
         with open(root_dir + f'{A}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
     if a_to_b_to_c:
@@ -89,7 +102,8 @@ with torch.no_grad():
                 **gen_args,
             )
             translates.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True))
-            outputs.append(out)
+            outputs.append(to_cpu(out))
+            del out
         for i, (src, tgt) in enumerate(tqdm(zip(a_sentences[:num_samples], c_sentences[:num_samples]), total=num_samples)):
             data.append({
                 'src': src,
