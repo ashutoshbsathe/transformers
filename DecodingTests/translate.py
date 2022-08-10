@@ -22,6 +22,8 @@ gen_args = dict(
     num_return_sequences=4,
     max_length=256,
     output_scores=True,
+    output_attentions=True,
+    output_hidden_states=True,
     return_dict_in_generate=True,
     return_args=True,
 )
@@ -29,9 +31,9 @@ gen_args = dict(
 model = MBartForConditionalGeneration.from_pretrained("facebook/mbart-large-50-many-to-many-mmt").cuda()
 tokenizer = MBart50Tokenizer.from_pretrained("facebook/mbart-large-50-many-to-many-mmt", use_fast=False)
 
-a_to_c = False 
-a_to_b_to_c = False 
-a_to_b_joint_to_c = True
+a_to_c = True
+a_to_b_to_c = True
+a_to_b_joint_to_c = False
 a_to_b_multiple_to_c = False
 
 a_sentences = open(root_dir + fname + f'.{A}', encoding='utf-8').readlines()
@@ -56,6 +58,7 @@ with torch.no_grad():
                 'src': src,
                 'tgt': tgt, 
                 'translations': tokenizer.batch_decode(out['sequences'], skip_special_tokens=True),
+                'outputs': out,
             })
         with open(root_dir + f'{A}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
@@ -72,8 +75,9 @@ with torch.no_grad():
                 **encoded_src,
                 **gen_args,
             )
-            b_sentences.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True)[:2])
+            b_sentences.append(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True)[0])
         translates = []
+        outputs = []
         src_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(B))
         tgt_key = max(tokenizer.lang_code_to_id.keys(), key=lambda x: x.startswith(C))
         tokenizer.src_lang = src_key
@@ -84,12 +88,14 @@ with torch.no_grad():
                 **encoded_src,
                 **gen_args,
             )
-            translates.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True)[:2])
+            translates.extend(tokenizer.batch_decode(out['sequences'], skip_special_tokens=True))
+            outputs.append(out)
         for i, (src, tgt) in enumerate(tqdm(zip(a_sentences[:num_samples], c_sentences[:num_samples]), total=num_samples)):
             data.append({
                 'src': src,
                 'tgt': tgt,
                 'translations': translates[i*4:(i+1)*4],
+                'outputs': outputs[i],
             })
         with open(root_dir + f'{A}->{B}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
@@ -301,5 +307,5 @@ for fname in files:
         for pred in datum['translations'][:1]:
             predictions.append(pred)
             references.append([datum['tgt']])
-    print('BLEU:', bleu.compute(predictions=predictions, references=references))
+    print('BLEU:', bleu.compute(predictions=predictions, references=references, tokenizer=tokenizer.tokenize))
     print(64*'-')
