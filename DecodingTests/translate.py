@@ -51,7 +51,7 @@ a_to_b_multiple_to_c = False
 a_sentences = open(root_dir + fname + f'.{A}', encoding='utf-8').readlines()
 c_sentences = open(root_dir + fname + f'.{C}', encoding='utf-8').readlines()
 
-num_samples = len(a_sentences)
+num_samples = 5 #len(a_sentences)
 
 with torch.no_grad():
     if a_to_c:
@@ -73,7 +73,7 @@ with torch.no_grad():
                 'outputs': to_cpu(out),
             })
             del out
-        with open(root_dir + f'{A}->{C}.pkl', 'wb') as f:
+        with open(root_dir + f'num_samples={num_samples}.{A}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
     if a_to_b_to_c:
         data = []
@@ -111,7 +111,7 @@ with torch.no_grad():
                 'translations': translates[i*4:(i+1)*4],
                 'outputs': outputs[i],
             })
-        with open(root_dir + f'{A}->{B}->{C}.pkl', 'wb') as f:
+        with open(root_dir + f'num_samples={num_samples}.{A}->{B}->{C}.pkl', 'wb') as f:
             pickle.dump(data, f)
     if a_to_b_joint_to_c:
         save_dir = root_dir + '/a_to_b_joint_to_c/'
